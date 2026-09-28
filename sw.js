@@ -4,7 +4,7 @@
  * 4U.IA.BR
  */
 
-const CACHE_NAME = 'imagepro-v2.2';
+const CACHE_NAME = 'imagepro-v2.3';
 const ASSETS = [
   './',
   './index.html',

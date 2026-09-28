@@ -1397,11 +1397,17 @@
                 outName = outName.replace(/\.[^/.]+$/, '') + `.${ext}`;
             }
 
-            const dataUrl = await new Promise((resolve) => {
-                const r = new FileReader();
-                r.onload = () => resolve(r.target.result);
-                r.readAsDataURL(finalBlob);
-            });
+            let dataUrl = '';
+            try {
+                dataUrl = URL.createObjectURL(finalBlob);
+            } catch (ue) {
+                dataUrl = await new Promise((resolve) => {
+                    const r = new FileReader();
+                    r.onload = (e) => resolve(e.target.result || r.result);
+                    r.onerror = () => resolve('');
+                    r.readAsDataURL(finalBlob);
+                });
+            }
 
             return {
                 id: item.id,
