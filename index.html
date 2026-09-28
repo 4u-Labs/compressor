@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4U.IA.BR — Image Processor PRO | Compressão & Edição 100% Local</title>
+    <meta name="description" content="Redimensione, converta e comprima imagens em lote no navegador com tecnologia 4U.IA.BR. Suporte a WebP, AVIF, presets de redes sociais, remoção de EXIF e comparador visual. 100% privado.">
+    <link rel="canonical" href="https://4u.ia.br/app/compressor/">
+    
+    <!-- PWA & Favicons -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#00ff88">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Image PRO">
+    
+    <!-- Open Graph / Meta -->
+    <meta property="og:title" content="4U.IA.BR — Image Processor PRO">
+    <meta property="og:description" content="Processamento e compressão profissional de imagens em lote, 100% no seu navegador. Zero upload, privacidade absoluta.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://4u.ia.br/app/compressor/">
+    <meta property="og:image" content="https://4u.ia.br/app/compressor/icon-512.png">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        if (window.console && console.warn) {
+            const originalWarn = console.warn;
+            console.warn = function() {
+                if (arguments[0] && typeof arguments[0] === 'string' && arguments[0].includes('cdn.tailwindcss.com')) return;
+                originalWarn.apply(console, arguments);
+            };
+        }
+    </script>
+    
+    <!-- JSZip -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <!-- Sortable.js -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --neon-green: #00ff88;
+            --neon-purple: #b388ff;
+            --neon-pink: #ff00ff;
+            --neon-blue: #00d4ff;
+        }
+        body { font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+
+        /* Background System */
+        .bg-mesh {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; overflow: hidden; background: #050508;
+        }
+        .bg-mesh::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: 
+                radial-gradient(circle at 30% 30%, rgba(179, 136, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 70% 70%, rgba(0, 212, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.05) 0%, transparent 50%);
+            animation: meshMove 25s ease-in-out infinite alternate;
+        }
+        @keyframes meshMove {
+            from { transform: rotate(0deg) scale(1); }
+            to { transform: rotate(4deg) scale(1.08); }
+        }
+        .bg-grid {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 50px 50px; pointer-events: none;
+        }
+        .bg-vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.6) 100%);
+            pointer-events: none;
+        }
+
+        /* Glassmorphism */
+        .glass { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-dark { background: rgba(10, 10, 16, 0.75); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-active { background: rgba(0, 255, 136, 0.12); border-color: rgba(0, 255, 136, 0.4); }
+
+        /* Neon Glows */
+        .neon-glow { box-shadow: 0 0 25px rgba(0, 255, 136, 0.25), 0 0 50px rgba(0, 255, 136, 0.1); }
+        .neon-glow-purple { box-shadow: 0 0 25px rgba(179, 136, 255, 0.25), 0 0 50px rgba(179, 136, 255, 0.1); }
+        .neon-glow-blue { box-shadow: 0 0 25px rgba(0, 212, 255, 0.25), 0 0 50px rgba(0, 212, 255, 0.1); }
+
+        .gradient-text {
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-blue), var(--neon-purple));
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hover-lift { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hover-lift:hover { transform: translateY(-3px); }
+
+        /* Upload Zone */
+        .upload-zone { border: 2px dashed rgba(0, 255, 136, 0.3); transition: all 0.3s ease; }
+        .upload-zone:hover { border-color: var(--neon-green); background: rgba(0, 255, 136, 0.04); }
+        .upload-zone.drag-over { border-color: var(--neon-green); background: rgba(0, 255, 136, 0.1); transform: scale(1.01); }
+
+        /* Progress Bar */
+        .progress-bar-shimmer {
+            background: linear-gradient(90deg, var(--neon-green), var(--neon-blue), var(--neon-green));
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite linear;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        /* Image Card */
+        .image-card { position: relative; overflow: hidden; transition: all 0.3s ease; }
+        .image-card.selected { outline: 2px solid var(--neon-green); }
+        .image-card.processing { opacity: 0.75; }
+
+        /* Split Slider for Comparison */
+        .split-slider-container {
+            position: relative; width: 100%; height: 500px;
+            background: #000; border-radius: 16px; overflow: hidden;
+            user-select: none; touch-action: none;
+            background-image: linear-gradient(45deg, #111 25%, transparent 25%), 
+                              linear-gradient(-45deg, #111 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #111 75%), 
+                              linear-gradient(-45deg, transparent 75%, #111 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+        .split-slider-img {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: contain; pointer-events: none;
+        }
+        .split-handle {
+            position: absolute; top: 0; bottom: 0; width: 4px;
+            background: var(--neon-green); cursor: ew-resize; z-index: 30;
+            transform: translateX(-50%); box-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
+        }
+        .split-handle-button {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 44px; height: 44px; background: #000; border: 2px solid var(--neon-green);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            color: var(--neon-green); font-size: 14px; font-weight: bold;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.7);
+        }
+
+        /* Keyboard badge */
+        .kbd {
+            display: inline-block; padding: 2px 7px;
+            background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px; font-family: monospace; font-size: 0.8em;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(16px);
+            z-index: 1000; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Pill buttons */
+        .preset-pill {
+            padding: 6px 14px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1; transition: all 0.2s ease; cursor: pointer;
+        }
+        .preset-pill:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        .preset-pill.active {
+            background: rgba(0, 255, 136, 0.15); border-color: var(--neon-green);
+            color: var(--neon-green); box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .split-slider-container { height: 350px; }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-white flex flex-col justify-between">
+
+    <div class="bg-mesh"></div>
+    <div class="bg-grid"></div>
+    <div class="bg-vignette"></div>
+
+    <!-- Privacy Banner -->
+    <div class="glass-dark py-2.5 px-4 text-center text-xs md:text-sm border-b border-green-500/20 relative z-20">
+        <div class="max-w-7xl mx-auto flex items-center justify-center gap-2 flex-wrap text-gray-300">
+            <span class="inline-flex items-center gap-1.5 text-green-400 font-semibold">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+                100% Local & Privado:
+            </span>
+            <span>Suas fotos nunca saem do seu computador. Processadas 100% no navegador via Canvas e WebAssembly.</span>
+            <span class="text-green-400 font-mono text-[11px] bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">Zero Server Upload</span>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="py-6 px-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl p-0.5 bg-gradient-to-tr from-green-400 to-cyan-400 shadow-lg shadow-green-500/20 flex items-center justify-center">
+                    <img src="favicon.svg" alt="Image PRO" class="w-full h-full rounded-2xl object-cover">
+                </div>
+                <div>
+                    <h1 class="font-orbitron text-2xl md:text-3xl font-black tracking-wide gradient-text">
+                        4U.IA.BR <span class="text-white/30 text-xl font-normal">/</span> PRO
+                    </h1>
+                    <div class="text-xs text-gray-400 uppercase tracking-widest font-mono">Image Processor</div>
+                </div>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="flex items-center gap-3">
+                <button id="pwaInstallBtn" class="hidden glass rounded-xl px-4 py-2 text-xs font-semibold text-green-400 hover-lift flex items-center gap-2 border-green-500/30">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Instalar App
+                </button>
+                <button id="shortcutsBtn" class="glass rounded-xl px-4 py-2 text-xs font-medium text-gray-300 hover-lift flex items-center gap-2">
+                    <kbd class="kbd">?</kbd>
+                    Atalhos
+                </button>
+                <a href="https://github.com/4u-Labs/compressor" target="_blank" class="glass rounded-xl px-4 py-2 text-xs font-medium text-gray-300 hover-lift flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-4 w-full">
+
+        <!-- Upload Zone -->
+        <section id="uploadSection" class="mb-8">
+            <div class="upload-zone glass-dark rounded-3xl p-8 md:p-12 text-center cursor-pointer hover-lift shadow-2xl relative overflow-hidden" id="uploadZone">
+                <input type="file" id="fileInput" accept="image/*,.svg" multiple class="hidden">
+                
+                <div class="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center justify-center text-green-400">
+                    <svg class="w-8 h-8 md:w-10 md:h-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                </div>
+                
+                <h2 class="text-2xl md:text-3xl font-extrabold mb-2 text-white">
+                    Arraste suas fotos aqui
+                </h2>
+                <p class="text-gray-400 text-sm md:text-base mb-4">
+                    ou clique para navegar no seu computador
+                </p>
+                <div class="inline-flex items-center gap-2 text-xs text-gray-400 bg-white/5 px-3 py-1.5 rounded-full mb-6 border border-white/10">
+                    <span>Dica: cole direto da área de transferência com</span>
+                    <kbd class="kbd">Ctrl + V</kbd>
+                </div>
+                
+                <div class="flex flex-wrap justify-center gap-2 text-xs font-mono text-gray-400">
+                    <span class="glass px-2.5 py-1 rounded-md text-green-400 border-green-500/30">WEBP</span>
+                    <span class="glass px-2.5 py-1 rounded-md text-cyan-400 border-cyan-500/30">AVIF</span>
+                    <span class="glass px-2.5 py-1 rounded-md">JPG / JPEG</span>
+                    <span class="glass px-2.5 py-1 rounded-md">PNG</span>
+                    <span class="glass px-2.5 py-1 rounded-md text-purple-400 border-purple-500/30">SVG</span>
+                    <span class="glass px-2.5 py-1 rounded-md">GIF</span>
+                    <span class="glass px-2.5 py-1 rounded-md">BMP</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistics Banner -->
+        <section id="statsSection" class="mb-8 hidden">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="glass-dark rounded-2xl p-4 text-center hover-lift border border-white/5">
+                    <div class="text-2xl md:text-3xl font-bold gradient-text mb-1" id="statTotal">0</div>
+                    <div class="text-xs text-gray-400 font-medium">Arquivos Carregados</div>
+                </div>
+                <div class="glass-dark rounded-2xl p-4 text-center hover-lift border border-white/5">
+                    <div class="text-2xl md:text-3xl font-bold gradient-text mb-1" id="statSize">0 MB</div>
+                    <div class="text-xs text-gray-400 font-medium">Tamanho Original</div>
+                </div>
+                <div class="glass-dark rounded-2xl p-4 text-center hover-lift border border-white/5">
+                    <div class="text-2xl md:text-3xl font-bold gradient-text mb-1" id="statProcessed">0</div>
+                    <div class="text-xs text-gray-400 font-medium">Processados</div>
+                </div>
+                <div class="glass-dark rounded-2xl p-4 text-center hover-lift border border-green-500/20">
+                    <div class="text-2xl md:text-3xl font-bold text-green-400 mb-1" id="statSavings">0%</div>
+                    <div class="text-xs text-gray-400 font-medium">Economia Total</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Processing Controls Section -->
+        <section id="controlsSection" class="mb-8 hidden">
+            <div class="glass-dark rounded-3xl p-6 border border-white/10 shadow-2xl">
+                <div class="flex items-center justify-between mb-6 pb-4 border-b border-white/10 flex-wrap gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-green-400 animate-pulse"></span>
+                        <h3 class="text-lg font-bold">Painel de Configuração</h3>
+                    </div>
+                    <div class="text-xs text-gray-400">Ajuste os parâmetros para processamento em lote</div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    
+                    <!-- 1. Formato de Saída -->
+                    <div class="glass rounded-2xl p-5 border border-white/5">
+                        <label class="text-xs font-bold uppercase tracking-wider text-green-400 flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            Formato de Conversão
+                        </label>
+                        <select id="formatSelect" class="w-full glass rounded-xl px-4 py-2.5 bg-black/40 border border-white/10 focus:border-green-400 focus:outline-none text-sm font-medium">
+                            <option value="webp" selected>WebP (Recomendado — Leve e Rápido)</option>
+                            <option value="avif">AVIF (Máxima Compressão Moderna)</option>
+                            <option value="jpeg">JPEG / JPG (Compatibilidade Universal)</option>
+                            <option value="png">PNG (Preserva Transparência / Sem Perdas)</option>
+                            <option value="original">Original (Manter formato de origem)</option>
+                        </select>
+                        <div id="avifSupportNote" class="text-[11px] text-cyan-400 mt-2 hidden">
+                            ✓ Navegador compatível com codificação AVIF nativa.
+                        </div>
+                    </div>
+
+                    <!-- 2. Qualidade & Modo de Compressão -->
+                    <div class="glass rounded-2xl p-5 border border-white/5">
+                        <div class="flex justify-between items-center mb-3">
+                            <label class="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                Qualidade & Meta
+                            </label>
+                            <span id="qualityValue" class="text-sm font-mono font-bold text-purple-400">80%</span>
+                        </div>
+
+                        <!-- Presets de Qualidade -->
+                        <div class="flex flex-wrap gap-1.5 mb-3">
+                            <button type="button" class="preset-pill" data-quality="55">Econômico (55%)</button>
+                            <button type="button" class="preset-pill active" data-quality="80">Web (80%)</button>
+                            <button type="button" class="preset-pill" data-quality="92">Foto (92%)</button>
+                            <button type="button" class="preset-pill" data-quality="100">100%</button>
+                            <button type="button" id="targetSizeToggleBtn" class="preset-pill text-yellow-400 border-yellow-500/30">Meta KB</button>
+                        </div>
+
+                        <!-- Slider -->
+                        <div id="sliderContainer">
+                            <input type="range" id="qualitySlider" min="10" max="100" value="80" class="w-full accent-green-400">
+                        </div>
+
+                        <!-- Campo de Meta de Tamanho (Target Size) -->
+                        <div id="targetSizeContainer" class="hidden mt-2">
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="targetSizeInput" placeholder="Ex: 500" class="w-full glass rounded-xl px-3 py-1.5 bg-black/40 border border-yellow-500/40 text-sm font-mono">
+                                <select id="targetSizeUnit" class="glass rounded-xl px-3 py-1.5 bg-black/40 border border-white/10 text-xs">
+                                    <option value="KB" selected>KB</option>
+                                    <option value="MB">MB</option>
+                                </select>
+                            </div>
+                            <div class="text-[10px] text-gray-400 mt-1">Busca binária automática para enquadrar no limite.</div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Resolução & Redes Sociais -->
+                    <div class="glass rounded-2xl p-5 border border-white/5">
+                        <label class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                            Redimensionar & Redes
+                        </label>
+                        <select id="resolutionSelect" class="w-full glass rounded-xl px-4 py-2.5 bg-black/40 border border-white/10 focus:border-cyan-400 focus:outline-none text-sm font-medium">
+                            <option value="original" selected>Resolução Original (100%)</option>
+                            <optgroup label="Escala Proporcional">
+                                <option value="scale_75">Reduzir para 75%</option>
+                                <option value="scale_50">Reduzir para 50% (Metade)</option>
+                                <option value="scale_25">Reduzir para 25%</option>
+                            </optgroup>
+                            <optgroup label="Limite Máximo Proporcional">
+                                <option value="max_1920">Largura Máx. 1920px (Full HD)</option>
+                                <option value="max_1280">Largura Máx. 1280px (HD)</option>
+                                <option value="max_800">Largura Máx. 800px (Blog / Web)</option>
+                            </optgroup>
+                            <optgroup label="Redes Sociais & Presets">
+                                <option value="1080x1920">Instagram Stories / Reels (9:16)</option>
+                                <option value="1080x1350">Instagram Feed Retrato (4:5)</option>
+                                <option value="1080x1080">Instagram Feed Quadrado (1:1)</option>
+                                <option value="2560x1440">YouTube Banner (16:9)</option>
+                                <option value="1920x1080">Full HD Paisagem (16:9)</option>
+                                <option value="512x512">Favicon / Ícone (512×512)</option>
+                            </optgroup>
+                            <option value="custom">Dimensões Personalizadas...</option>
+                        </select>
+
+                        <!-- Custom Resolution inputs -->
+                        <div id="customResolutionInputs" class="hidden mt-3 grid grid-cols-2 gap-2">
+                            <input type="number" id="customWidth" placeholder="Largura (px)" class="glass rounded-xl px-3 py-1.5 bg-black/40 border border-white/10 text-xs">
+                            <input type="number" id="customHeight" placeholder="Altura (px)" class="glass rounded-xl px-3 py-1.5 bg-black/40 border border-white/10 text-xs">
+                        </div>
+                    </div>
+
+                    <!-- 4. Utilitários: Marca D'água (Watermark) -->
+                    <div class="glass rounded-2xl p-5 border border-white/5">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-xs font-bold uppercase tracking-wider text-pink-400 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                                Marca D'água
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="watermarkToggle" class="sr-only peer">
+                                <div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-500"></div>
+                            </label>
+                        </div>
+                        
+                        <div id="watermarkSettings" class="opacity-40 pointer-events-none transition-all">
+                            <input type="text" id="watermarkText" placeholder="Texto da marca (ex: © SuaMarca)" value="4U.IA.BR" class="w-full glass rounded-xl px-3 py-1.5 bg-black/40 border border-white/10 text-xs mb-2">
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <select id="watermarkPosition" class="glass rounded-xl px-2 py-1.5 bg-black/40 border border-white/10 text-xs">
+                                    <option value="bottom-right" selected>Canto Inferior Dir.</option>
+                                    <option value="bottom-left">Canto Inferior Esq.</option>
+                                    <option value="top-right">Canto Superior Dir.</option>
+                                    <option value="center">Centro</option>
+                                </select>
+                                <select id="watermarkOpacity" class="glass rounded-xl px-2 py-1.5 bg-black/40 border border-white/10 text-xs">
+                                    <option value="0.3">Opacidade 30%</option>
+                                    <option value="0.5" selected>Opacidade 50%</option>
+                                    <option value="0.8">Opacidade 80%</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Rotação & Orientação -->
+                    <div class="glass rounded-2xl p-5 border border-white/5">
+                        <label class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            Girar & Orientar
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" id="rotate90Btn" class="glass rounded-xl p-2 text-xs font-medium hover:bg-white/10 flex flex-col items-center gap-1">
+                                <span>↻ 90°</span>
+                                <span class="text-[10px] text-gray-500">Horário</span>
+                            </button>
+                            <button type="button" id="rotate180Btn" class="glass rounded-xl p-2 text-xs font-medium hover:bg-white/10 flex flex-col items-center gap-1">
+                                <span>↻ 180°</span>
+                                <span class="text-[10px] text-gray-500">Inverter</span>
+                            </button>
+                            <button type="button" id="flipHBtn" class="glass rounded-xl p-2 text-xs font-medium hover:bg-white/10 flex flex-col items-center gap-1">
+                                <span>⇄ Flip</span>
+                                <span class="text-[10px] text-gray-500">Horizontal</span>
+                            </button>
+                        </div>
+                        <div id="rotationIndicator" class="text-[11px] text-gray-400 mt-2 text-center">Rotação atual: 0°</div>
+                    </div>
+
+                    <!-- 6. Renomeação & ZIP -->
+                    <div class="glass rounded-2xl p-5 border border-white/5">
+                        <label class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                            Exportação & Nomes
+                        </label>
+                        <div class="space-y-2">
+                            <input type="text" id="renameInput" placeholder="Prefixo de renomeação (opcional)" class="w-full glass rounded-xl px-3 py-1.5 bg-black/40 border border-white/10 text-xs">
+                            <div class="flex items-center gap-1">
+                                <input type="text" id="zipNameInput" value="imagens_otimizadas_4u" placeholder="Nome do arquivo ZIP" class="w-full glass rounded-xl px-3 py-1.5 bg-black/40 border border-white/10 text-xs">
+                                <span class="text-xs text-gray-400 font-mono">.zip</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Action Bar -->
+                <div class="flex flex-wrap justify-center items-center gap-4 mt-8 pt-6 border-t border-white/10">
+                    <button id="processBtn" class="bg-gradient-to-r from-green-400 to-cyan-400 text-black font-extrabold px-8 py-3.5 rounded-2xl hover-lift neon-glow flex items-center gap-2.5 text-sm md:text-base">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>Processar Todas as Imagens</span>
+                        <kbd class="kbd text-[10px] bg-black/20 border-black/30 text-black hidden md:inline">Enter</kbd>
+                    </button>
+
+                    <button id="downloadZipBtn" class="hidden glass-dark text-white font-bold px-8 py-3.5 rounded-2xl hover-lift border border-green-500/40 hover:border-green-400 flex items-center gap-2 text-sm md:text-base">
+                        <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>Baixar Pacote ZIP</span>
+                    </button>
+
+                    <button id="clearBtn" class="glass text-red-400 hover:text-red-300 font-medium px-5 py-3 rounded-2xl hover-lift text-xs md:text-sm flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        Limpar Seleção
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Progress Bar -->
+        <section id="progressSection" class="mb-8 hidden">
+            <div class="glass-dark rounded-2xl p-6 border border-green-500/30">
+                <div class="flex justify-between items-center mb-2">
+                    <span id="progressStatus" class="text-sm font-semibold text-gray-200">Processando imagens...</span>
+                    <span id="progressText" class="text-sm font-mono font-bold text-green-400">0%</span>
+                </div>
+                <div class="w-full h-3 bg-black/50 rounded-full overflow-hidden">
+                    <div id="progressBar" class="progress-bar-shimmer h-full rounded-full transition-all duration-200" style="width: 0%"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Images Grid -->
+        <section id="imagesSection" class="mb-12 hidden">
+            <div class="flex justify-between items-center mb-6 flex-wrap gap-2">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold flex items-center gap-2">
+                        <span>Galeria de Imagens</span>
+                        <span id="imageCountBadge" class="text-xs bg-green-500/20 text-green-400 font-mono px-2.5 py-0.5 rounded-full border border-green-500/30">0</span>
+                    </h2>
+                    <p class="text-xs text-gray-400">Clique na miniatura para abrir o comparador Antes/Depois com zoom</p>
+                </div>
+            </div>
+            
+            <div id="imagesGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                <!-- Image Cards rendered here -->
+            </div>
+        </section>
+
+        <!-- History Section -->
+        <section id="historySection" class="mb-12">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold flex items-center gap-2 text-gray-300">
+                    <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Histórico Recente
+                </h3>
+                <button id="clearHistoryBtn" class="text-xs text-gray-400 hover:text-gray-200 glass px-3 py-1.5 rounded-xl">Limpar</button>
+            </div>
+            <div id="historyList" class="space-y-3">
+                <div class="glass-dark rounded-2xl p-6 text-center text-gray-500 text-sm">
+                    Nenhum processamento registrado no dispositivo
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Comparador Antes/Depois (Split Slider & Zoom) -->
+    <div id="compareModal" class="modal hidden">
+        <div class="glass-dark rounded-3xl p-6 w-full max-w-5xl mx-4 max-h-[95vh] overflow-y-auto border border-white/10 shadow-2xl">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-white/10">
+                <div>
+                    <h3 class="text-lg font-bold gradient-text" id="modalFileName">Comparador Visual Antes/Depois</h3>
+                    <div class="text-xs text-gray-400" id="modalDimensions">Original vs Otimizada</div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button id="modalDownloadBtn" class="glass rounded-xl px-4 py-1.5 text-xs text-green-400 font-semibold hover-lift flex items-center gap-1.5 border-green-500/30">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                        Baixar Esta
+                    </button>
+                    <button id="closeCompareModal" class="glass rounded-full p-2 text-gray-400 hover:text-white hover-lift">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Telemetria Comparativa -->
+            <div class="grid grid-cols-3 gap-3 mb-4 text-center">
+                <div class="glass rounded-xl p-3">
+                    <div class="text-xs text-gray-400">Original</div>
+                    <div id="modalOriginalSize" class="text-base font-bold text-gray-200">--</div>
+                </div>
+                <div class="glass rounded-xl p-3 border border-green-500/30">
+                    <div class="text-xs text-gray-400">Comprimida</div>
+                    <div id="modalNewSize" class="text-base font-bold text-green-400">--</div>
+                </div>
+                <div class="glass rounded-xl p-3">
+                    <div class="text-xs text-gray-400">Economia</div>
+                    <div id="modalSavings" class="text-base font-bold text-cyan-400">--</div>
+                </div>
+            </div>
+
+            <!-- Slider Interativo -->
+            <div class="split-slider-container" id="splitSliderContainer">
+                <!-- Imagem Original (fundo) -->
+                <img id="modalBeforeImg" class="split-slider-img" alt="Original">
+                <!-- Imagem Otimizada (recortada) -->
+                <div id="modalAfterClip" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; clip-path: inset(0 0 0 50%);">
+                    <img id="modalAfterImg" class="split-slider-img" alt="Processada">
+                </div>
+                <!-- Divisor arrastável -->
+                <div class="split-handle" id="splitHandle" style="left: 50%;">
+                    <div class="split-handle-button">◄►</div>
+                </div>
+                <!-- Labels nos cantos -->
+                <div class="absolute bottom-4 left-4 bg-black/70 px-3 py-1 rounded-lg text-xs font-semibold text-gray-300 pointer-events-none">Antes (Original)</div>
+                <div class="absolute bottom-4 right-4 bg-black/70 px-3 py-1 rounded-lg text-xs font-semibold text-green-400 pointer-events-none">Depois (Otimizada)</div>
+            </div>
+
+            <p class="text-center text-xs text-gray-400 mt-4">
+                Arraste o divisor central para a esquerda ou direita para comparar visualmente os detalhes.
+            </p>
+        </div>
+    </div>
+
+    <!-- Modal Atalhos -->
+    <div id="shortcutsModal" class="modal hidden">
+        <div class="glass-dark rounded-3xl p-6 w-full max-w-md mx-4 border border-white/10 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold gradient-text">Atalhos de Teclado</h3>
+                <button id="closeShortcuts" class="glass rounded-full p-1.5 text-gray-400 hover:text-white">✕</button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div class="flex justify-between items-center p-3 glass rounded-xl">
+                    <span>Processar imagens</span>
+                    <kbd class="kbd">Enter</kbd>
+                </div>
+                <div class="flex justify-between items-center p-3 glass rounded-xl">
+                    <span>Limpar seleção / Fechar modal</span>
+                    <kbd class="kbd">Esc</kbd>
+                </div>
+                <div class="flex justify-between items-center p-3 glass rounded-xl">
+                    <span>Colar imagem da área de transferência</span>
+                    <kbd class="kbd">Ctrl + V</kbd>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rodapé Oficial Padrão 4U.IA.BR -->
+    <footer class="mt-16 border-t border-white/10 bg-black/40 backdrop-blur-md py-10 px-4">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex flex-col items-center md:items-start text-center md:text-left">
+                <div class="font-orbitron text-xl font-bold gradient-text tracking-wide mb-1">
+                    4U.IA.BR <span class="text-white/30 text-base font-normal">/</span> Image PRO
+                </div>
+                <p class="text-xs text-gray-400 max-w-md">
+                    Processador de imagens 100% Client-Side. Seus arquivos nunca são transmitidos nem armazenados em servidores.
+                </p>
+                <div class="text-[11px] text-gray-500 mt-2 font-mono">
+                    Zero-Data Retention Architecture • MIT Licensed
+                </div>
+            </div>
+
+            <!-- Links Institucionais & Apoio -->
+            <div class="flex flex-col sm:flex-row items-center gap-4 text-xs font-medium text-gray-400">
+                <a href="privacidade.html" class="hover:text-green-400 transition-colors">Privacidade</a>
+                <span class="text-white/20 hidden sm:inline">•</span>
+                <a href="termos.html" class="hover:text-green-400 transition-colors">Termos de Uso</a>
+                <span class="text-white/20 hidden sm:inline">•</span>
+                <a href="suporte.html" class="hover:text-green-400 transition-colors">Suporte & Ajuda</a>
+                <span class="text-white/20 hidden sm:inline">•</span>
+                <a href="https://github.com/4u-Labs/compressor" target="_blank" class="hover:text-green-400 transition-colors flex items-center gap-1">
+                    <span>GitHub</span>
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"></path><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"></path></svg>
+                </a>
+            </div>
+
+            <!-- Doação PayPal -->
+            <div>
+                <a href="https://www.paypal.com/ncp/payment/L7YRCS984T33N" target="_blank" class="glass rounded-xl px-4 py-2 text-xs font-semibold text-yellow-400 hover:text-yellow-300 border-yellow-500/30 hover:border-yellow-400 flex items-center gap-2 hover-lift">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.641.641 0 0 1 .632-.544h7.502c3.486 0 5.86 1.488 5.626 4.978-.266 3.993-2.738 6.036-6.332 6.036H9.428l-.946 5.986a.641.641 0 0 1-.632.544l-.774.617z"/></svg>
+                    <span>Apoiar Projeto (PayPal)</span>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2"></div>
+
+    <!-- Application Script -->
+    <script>
+        // ==================== STATE ====================
+        const state = {
+            images: [],
+            processedImages: [],
+            processing: false,
+            rotation: 0,
+            flipH: false,
+            settings: {
+                format: 'webp',
+                quality: 0.8,
+                isTargetSize: false,
+                targetSizeKB: null,
+                resolution: 'original',
+                customWidth: null,
+                customHeight: null,
+                watermarkEnabled: false,
+                watermarkText: '4U.IA.BR',
+                watermarkPosition: 'bottom-right',
+                watermarkOpacity: 0.5,
+                rename: '',
+                zipName: 'imagens_otimizadas_4u'
+            },
+            currentCompareItem: null
+        };
+
+        // ==================== DOM ELEMENTS ====================
+        const elements = {
+            uploadZone: document.getElementById('uploadZone'),
+            fileInput: document.getElementById('fileInput'),
+            uploadSection: document.getElementById('uploadSection'),
+            statsSection: document.getElementById('statsSection'),
+            controlsSection: document.getElementById('controlsSection'),
+            imagesSection: document.getElementById('imagesSection'),
+            progressSection: document.getElementById('progressSection'),
+            imagesGrid: document.getElementById('imagesGrid'),
+            formatSelect: document.getElementById('formatSelect'),
+            avifSupportNote: document.getElementById('avifSupportNote'),
+            qualitySlider: document.getElementById('qualitySlider'),
+            qualityValue: document.getElementById('qualityValue'),
+            sliderContainer: document.getElementById('sliderContainer'),
+            targetSizeContainer: document.getElementById('targetSizeContainer'),
+            targetSizeInput: document.getElementById('targetSizeInput'),
+            targetSizeUnit: document.getElementById('targetSizeUnit'),
+            targetSizeToggleBtn: document.getElementById('targetSizeToggleBtn'),
+            resolutionSelect: document.getElementById('resolutionSelect'),
+            customResolutionInputs: document.getElementById('customResolutionInputs'),
+            customWidth: document.getElementById('customWidth'),
+            customHeight: document.getElementById('customHeight'),
+            watermarkToggle: document.getElementById('watermarkToggle'),
+            watermarkSettings: document.getElementById('watermarkSettings'),
+            watermarkText: document.getElementById('watermarkText'),
+            watermarkPosition: document.getElementById('watermarkPosition'),
+            watermarkOpacity: document.getElementById('watermarkOpacity'),
+            rotate90Btn: document.getElementById('rotate90Btn'),
+            rotate180Btn: document.getElementById('rotate180Btn'),
+            flipHBtn: document.getElementById('flipHBtn'),
+            rotationIndicator: document.getElementById('rotationIndicator'),
+            renameInput: document.getElementById('renameInput'),
+            zipNameInput: document.getElementById('zipNameInput'),
+            processBtn: document.getElementById('processBtn'),
+            downloadZipBtn: document.getElementById('downloadZipBtn'),
+            clearBtn: document.getElementById('clearBtn'),
+            progressBar: document.getElementById('progressBar'),
+            progressText: document.getElementById('progressText'),
+            progressStatus: document.getElementById('progressStatus'),
+            statTotal: document.getElementById('statTotal'),
+            statSize: document.getElementById('statSize'),
+            statProcessed: document.getElementById('statProcessed'),
+            statSavings: document.getElementById('statSavings'),
+            imageCountBadge: document.getElementById('imageCountBadge'),
+            historyList: document.getElementById('historyList'),
+            clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+            shortcutsBtn: document.getElementById('shortcutsBtn'),
+            shortcutsModal: document.getElementById('shortcutsModal'),
+            closeShortcuts: document.getElementById('closeShortcuts'),
+            compareModal: document.getElementById('compareModal'),
+            closeCompareModal: document.getElementById('closeCompareModal'),
+            modalFileName: document.getElementById('modalFileName'),
+            modalDimensions: document.getElementById('modalDimensions'),
+            modalOriginalSize: document.getElementById('modalOriginalSize'),
+            modalNewSize: document.getElementById('modalNewSize'),
+            modalSavings: document.getElementById('modalSavings'),
+            modalBeforeImg: document.getElementById('modalBeforeImg'),
+            modalAfterImg: document.getElementById('modalAfterImg'),
+            modalAfterClip: document.getElementById('modalAfterClip'),
+            splitHandle: document.getElementById('splitHandle'),
+            splitSliderContainer: document.getElementById('splitSliderContainer'),
+            modalDownloadBtn: document.getElementById('modalDownloadBtn'),
+            pwaInstallBtn: document.getElementById('pwaInstallBtn')
+        };
+
+        // ==================== AVIF FEATURE DETECTION ====================
+        function checkAvifSupport() {
+            try {
+                const c = document.createElement('canvas');
+                c.width = 1; c.height = 1;
+                const isSupported = c.toDataURL('image/avif').startsWith('data:image/avif');
+                if (isSupported) {
+                    elements.avifSupportNote.classList.remove('hidden');
+                }
+                return isSupported;
+            } catch (e) {
+                return false;
+            }
+        }
+        const hasAvif = checkAvifSupport();
+
+        // ==================== TOAST SYSTEM ====================
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'border-green-500/40 text-green-400',
+                error: 'border-red-500/40 text-red-400',
+                info: 'border-cyan-500/40 text-cyan-400',
+                warning: 'border-yellow-500/40 text-yellow-400'
+            };
+            toast.className = `glass-dark px-4 py-3 rounded-2xl border shadow-xl flex items-center gap-2 text-xs md:text-sm font-medium transition-all duration-300 transform translate-x-full ${colors[type] || colors.info}`;
+            toast.innerHTML = `
+                <span>${message}</span>
+            `;
+            elements.toastContainer.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-x-full'));
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // ==================== UTILS ====================
+        function formatBytes(bytes, decimals = 1) {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+        }
+
+        // ==================== PWA INSTALLATION ====================
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            elements.pwaInstallBtn.classList.remove('hidden');
+        });
+
+        elements.pwaInstallBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const choice = await deferredPrompt.userChoice;
+                if (choice.outcome === 'accepted') {
+                    showToast('App adicionado ao seu dispositivo!', 'success');
+                }
+                deferredPrompt = null;
+                elements.pwaInstallBtn.classList.add('hidden');
+            }
+        });
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(console.error);
+            });
+        }
+
+        // ==================== UPLOAD HANDLERS ====================
+        elements.uploadZone.addEventListener('click', () => elements.fileInput.click());
+
+        elements.uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            elements.uploadZone.classList.add('drag-over');
+        });
+
+        elements.uploadZone.addEventListener('dragleave', () => {
+            elements.uploadZone.classList.remove('drag-over');
+        });
+
+        elements.uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            elements.uploadZone.classList.remove('drag-over');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        elements.fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        // Paste support (Ctrl+V)
+        document.addEventListener('paste', async (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            const imageFiles = [];
+            for (let item of items) {
+                if (item.type.includes('image')) {
+                    const file = item.getAsFile();
+                    if (file) imageFiles.push(file);
+                }
+            }
+            if (imageFiles.length > 0) {
+                await handleFiles(imageFiles);
+                showToast(`${imageFiles.length} foto(s) colada(s) do clipboard!`, 'success');
+            }
+        });
+
+        async function handleFiles(files) {
+            const fileList = Array.from(files);
+            if (fileList.length === 0) return;
+
+            let loadedCount = 0;
+            for (const file of fileList) {
+                try {
+                    const loadedItem = await readFileAsync(file);
+                    state.images.push(loadedItem);
+                    loadedCount++;
+                } catch (err) {
+                    console.error('Erro ao ler arquivo:', err);
+                }
+            }
+
+            if (loadedCount > 0) {
+                updateUI();
+                showToast(`${loadedCount} imagem(ns) carregada(s) com sucesso!`, 'success');
+            }
+        }
+
+        function readFileAsync(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        resolve({
+                            id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                            file: file,
+                            name: file.name,
+                            size: file.size,
+                            width: img.naturalWidth || img.width,
+                            height: img.naturalHeight || img.height,
+                            dataUrl: e.target.result,
+                            imgObj: img,
+                            status: 'waiting'
+                        });
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ==================== UI STATE UPDATE ====================
+        function updateUI() {
+            if (state.images.length > 0) {
+                elements.statsSection.classList.remove('hidden');
+                elements.controlsSection.classList.remove('hidden');
+                elements.imagesSection.classList.remove('hidden');
+                elements.imageCountBadge.textContent = state.images.length;
+                updateStats();
+                renderImages();
+            } else {
+                elements.statsSection.classList.add('hidden');
+                elements.controlsSection.classList.add('hidden');
+                elements.imagesSection.classList.add('hidden');
+                elements.downloadZipBtn.classList.add('hidden');
+                elements.fileInput.value = '';
+            }
+        }
+
+        function updateStats() {
+            const totalOriginal = state.images.reduce((acc, img) => acc + img.size, 0);
+            const totalProcessed = state.processedImages.reduce((acc, img) => acc + img.size, 0);
+            const savings = totalOriginal > 0 && totalProcessed > 0
+                ? Math.round(((totalOriginal - totalProcessed) / totalOriginal) * 100)
+                : 0;
+
+            elements.statTotal.textContent = state.images.length;
+            elements.statSize.textContent = formatBytes(totalOriginal);
+            elements.statProcessed.textContent = state.processedImages.length;
+            elements.statSavings.textContent = `${Math.max(0, savings)}%`;
+        }
+
+        // ==================== RENDER IMAGE CARDS ====================
+        function renderImages() {
+            elements.imagesGrid.innerHTML = state.images.map((item) => {
+                const processed = state.processedImages.find(p => p.id === item.id);
+                const savings = processed ? Math.round(((item.size - processed.size) / item.size) * 100) : null;
+                
+                return `
+                    <div class="image-card glass-dark rounded-2xl overflow-hidden border border-white/10 hover-lift group" data-id="${item.id}">
+                        <div class="relative aspect-video bg-black/60 cursor-pointer overflow-hidden" onclick="openCompareModal('${item.id}')">
+                            <img src="${item.dataUrl}" alt="${item.name}" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" loading="lazy">
+                            
+                            <!-- Badges -->
+                            ${processed ? `
+                                <div class="absolute top-2 right-2 bg-green-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
+                                    -${savings}%
+                                </div>
+                            ` : `
+                                <div class="absolute top-2 right-2 bg-black/60 text-gray-400 text-[10px] font-mono px-2 py-0.5 rounded-full">
+                                    ${item.width}×${item.height}
+                                </div>
+                            `}
+
+                            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-xs font-semibold text-green-400 gap-1.5 pointer-events-none">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                Comparar Antes/Depois
+                            </div>
+                        </div>
+
+                        <div class="p-3.5">
+                            <div class="font-semibold text-xs text-gray-200 truncate mb-1" title="${item.name}">${item.name}</div>
+                            <div class="flex justify-between items-center text-[11px] text-gray-400 mb-3">
+                                <span>Orig: ${formatBytes(item.size)}</span>
+                                ${processed ? `<span class="text-green-400 font-bold font-mono">${formatBytes(processed.size)}</span>` : '<span class="text-gray-500">Aguardando</span>'}
+                            </div>
+
+                            <!-- Card Quick Actions -->
+                            <div class="flex items-center gap-1.5 pt-2 border-t border-white/5">
+                                ${processed ? `
+                                    <button onclick="downloadSingleImage('${item.id}')" class="flex-1 glass rounded-lg py-1 px-2 text-[11px] text-green-400 hover:text-green-300 font-medium flex items-center justify-center gap-1 hover:bg-green-500/10">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                                        Baixar
+                                    </button>
+                                    <button onclick="copySingleImage('${item.id}')" class="glass rounded-lg p-1 text-[11px] text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10" title="Copiar para clipboard">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                                    </button>
+                                ` : ''}
+                                <button onclick="removeImage('${item.id}')" class="glass rounded-lg p-1 text-[11px] text-gray-500 hover:text-red-400 hover:bg-red-500/10 ml-auto" title="Remover">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.removeImage = function(id) {
+            state.images = state.images.filter(img => img.id !== id);
+            state.processedImages = state.processedImages.filter(p => p.id !== id);
+            updateUI();
+        };
+
+        // ==================== CONTROLS LISTENERS ====================
+        elements.formatSelect.addEventListener('change', (e) => {
+            state.settings.format = e.target.value;
+        });
+
+        // Presets de Qualidade
+        document.querySelectorAll('.preset-pill[data-quality]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                
+                state.settings.isTargetSize = false;
+                elements.targetSizeContainer.classList.add('hidden');
+                elements.sliderContainer.classList.remove('hidden');
+
+                const q = parseInt(btn.dataset.quality);
+                elements.qualitySlider.value = q;
+                elements.qualityValue.textContent = q + '%';
+                state.settings.quality = q / 100;
+            });
+        });
+
+        // Target Size Toggle
+        elements.targetSizeToggleBtn.addEventListener('click', () => {
+            document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
+            elements.targetSizeToggleBtn.classList.add('active');
+            
+            state.settings.isTargetSize = true;
+            elements.sliderContainer.classList.add('hidden');
+            elements.targetSizeContainer.classList.remove('hidden');
+            elements.qualityValue.textContent = 'Meta KB';
+        });
+
+        elements.qualitySlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            elements.qualityValue.textContent = val + '%';
+            state.settings.quality = val / 100;
+            document.querySelectorAll('.preset-pill[data-quality]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.quality === val);
+            });
+        });
+
+        elements.resolutionSelect.addEventListener('change', (e) => {
+            state.settings.resolution = e.target.value;
+            elements.customResolutionInputs.classList.toggle('hidden', e.target.value !== 'custom');
+        });
+
+        // Watermark Controls
+        elements.watermarkToggle.addEventListener('change', (e) => {
+            state.settings.watermarkEnabled = e.target.checked;
+            elements.watermarkSettings.classList.toggle('opacity-40', !e.target.checked);
+            elements.watermarkSettings.classList.toggle('pointer-events-none', !e.target.checked);
+        });
+        elements.watermarkText.addEventListener('input', (e) => state.settings.watermarkText = e.target.value);
+        elements.watermarkPosition.addEventListener('change', (e) => state.settings.watermarkPosition = e.target.value);
+        elements.watermarkOpacity.addEventListener('change', (e) => state.settings.watermarkOpacity = parseFloat(e.target.value));
+
+        // Rotation & Orientation
+        elements.rotate90Btn.addEventListener('click', () => {
+            state.rotation = (state.rotation + 90) % 360;
+            elements.rotationIndicator.textContent = `Rotação atual: ${state.rotation}°`;
+        });
+        elements.rotate180Btn.addEventListener('click', () => {
+            state.rotation = (state.rotation + 180) % 360;
+            elements.rotationIndicator.textContent = `Rotação atual: ${state.rotation}°`;
+        });
+        elements.flipHBtn.addEventListener('click', () => {
+            state.flipH = !state.flipH;
+            elements.flipHBtn.classList.toggle('border-green-400', state.flipH);
+            showToast(state.flipH ? 'Espelhamento horizontal ativado' : 'Espelhamento desativado', 'info');
+        });
+
+        // Names
+        elements.renameInput.addEventListener('input', (e) => state.settings.rename = e.target.value.trim());
+        elements.zipNameInput.addEventListener('input', (e) => state.settings.zipName = e.target.value.trim() || 'imagens_otimizadas_4u');
+
+        // ==================== CORE IMAGE PROCESSING ====================
+        elements.processBtn.addEventListener('click', async () => {
+            if (state.images.length === 0 || state.processing) return;
+
+            state.processing = true;
+            elements.processBtn.disabled = true;
+            elements.progressSection.classList.remove('hidden');
+            state.processedImages = [];
+
+            const total = state.images.length;
+            let current = 0;
+            const startTime = Date.now();
+
+            for (const item of state.images) {
+                elements.progressStatus.textContent = `Otimizando ${item.name} (${current + 1} de ${total})...`;
+                
+                try {
+                    const result = await processImageCore(item);
+                    state.processedImages.push(result);
+                } catch (err) {
+                    console.error('Falha ao processar:', err);
+                    showToast(`Erro ao processar ${item.name}`, 'error');
+                }
+
+                current++;
+                const pct = Math.round((current / total) * 100);
+                elements.progressBar.style.width = pct + '%';
+                elements.progressText.textContent = pct + '%';
+                renderImages();
+                updateStats();
+            }
+
+            state.processing = false;
+            elements.processBtn.disabled = false;
+            elements.progressSection.classList.add('hidden');
+            elements.downloadZipBtn.classList.remove('hidden');
+
+            const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
+            saveToHistory(elapsedSec);
+            showToast(`Concluído! ${state.processedImages.length} imagens processadas em ${elapsedSec}s`, 'success');
+        });
+
+        async function processImageCore(item) {
+            let targetW = item.width;
+            let targetH = item.height;
+
+            // Dimensions logic
+            const res = state.settings.resolution;
+            if (res.startsWith('scale_')) {
+                const scale = parseInt(res.replace('scale_', '')) / 100;
+                targetW = Math.round(item.width * scale);
+                targetH = Math.round(item.height * scale);
+            } else if (res.startsWith('max_')) {
+                const maxW = parseInt(res.replace('max_', ''));
+                if (item.width > maxW) {
+                    const ratio = maxW / item.width;
+                    targetW = maxW;
+                    targetH = Math.round(item.height * ratio);
+                }
+            } else if (res === 'custom') {
+                const cw = parseInt(elements.customWidth.value);
+                const ch = parseInt(elements.customHeight.value);
+                if (cw > 0) targetW = cw;
+                if (ch > 0) targetH = ch;
+            } else if (res.includes('x')) {
+                const [presetW, presetH] = res.split('x').map(Number);
+                targetW = presetW;
+                targetH = presetH;
+            }
+
+            // Canvas creation
+            const canvas = document.createElement('canvas');
+            const isRotated90 = (state.rotation === 90 || state.rotation === 270);
+            canvas.width = isRotated90 ? targetH : targetW;
+            canvas.height = isRotated90 ? targetW : targetH;
+            const ctx = canvas.getContext('2d');
+
+            // Transformations (rotation & flip)
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            if (state.rotation !== 0) {
+                ctx.rotate((state.rotation * Math.PI) / 180);
+            }
+            if (state.flipH) {
+                ctx.scale(-1, 1);
+            }
+
+            // Draw image centered
+            ctx.drawImage(
+                item.imgObj,
+                -targetW / 2,
+                -targetH / 2,
+                targetW,
+                targetH
+            );
+            ctx.restore();
+
+            // Watermark application
+            if (state.settings.watermarkEnabled && state.settings.watermarkText) {
+                ctx.save();
+                const fontSize = Math.max(14, Math.round(canvas.width * 0.035));
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                ctx.fillStyle = `rgba(255, 255, 255, ${state.settings.watermarkOpacity})`;
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+
+                const text = state.settings.watermarkText;
+                const textMetrics = ctx.measureText(text);
+                const padding = 20;
+
+                let tx = padding;
+                let ty = padding + fontSize;
+
+                if (state.settings.watermarkPosition === 'bottom-right') {
+                    tx = canvas.width - textMetrics.width - padding;
+                    ty = canvas.height - padding;
+                } else if (state.settings.watermarkPosition === 'bottom-left') {
+                    tx = padding;
+                    ty = canvas.height - padding;
+                } else if (state.settings.watermarkPosition === 'top-right') {
+                    tx = canvas.width - textMetrics.width - padding;
+                    ty = padding + fontSize;
+                } else if (state.settings.watermarkPosition === 'center') {
+                    tx = (canvas.width - textMetrics.width) / 2;
+                    ty = canvas.height / 2;
+                }
+
+                ctx.fillText(text, tx, ty);
+                ctx.restore();
+            }
+
+            // Format determination
+            let mimeType = 'image/webp';
+            let ext = 'webp';
+
+            if (state.settings.format === 'avif' && hasAvif) {
+                mimeType = 'image/avif';
+                ext = 'avif';
+            } else if (state.settings.format === 'jpeg') {
+                mimeType = 'image/jpeg';
+                ext = 'jpg';
+            } else if (state.settings.format === 'png') {
+                mimeType = 'image/png';
+                ext = 'png';
+            } else if (state.settings.format === 'original') {
+                mimeType = item.file.type || 'image/jpeg';
+                ext = mimeType.split('/')[1] || 'jpg';
+            }
+
+            // Quality / Target Size resolution
+            let finalBlob = null;
+            if (state.settings.isTargetSize) {
+                const targetBytes = (parseFloat(elements.targetSizeInput.value) || 500) * (elements.targetSizeUnit.value === 'MB' ? 1024 * 1024 : 1024);
+                // Binary search for optimal quality
+                let low = 0.05;
+                let high = 0.98;
+                let bestBlob = null;
+
+                for (let iter = 0; iter < 6; iter++) {
+                    const mid = (low + high) / 2;
+                    const testBlob = await new Promise(r => canvas.toBlob(r, mimeType, mid));
+                    if (!testBlob) break;
+                    bestBlob = testBlob;
+                    if (testBlob.size > targetBytes) {
+                        high = mid;
+                    } else {
+                        low = mid;
+                    }
+                }
+                finalBlob = bestBlob || await new Promise(r => canvas.toBlob(r, mimeType, 0.8));
+            } else {
+                finalBlob = await new Promise(r => canvas.toBlob(r, mimeType, state.settings.quality));
+            }
+
+            // Output filename
+            let outName = item.name;
+            if (state.settings.rename) {
+                const idx = state.processedImages.length + 1;
+                outName = `${state.settings.rename}_${idx}.${ext}`;
+            } else {
+                outName = outName.replace(/\.[^/.]+$/, '') + `.${ext}`;
+            }
+
+            const dataUrl = await new Promise((resolve) => {
+                const r = new FileReader();
+                r.onload = () => resolve(r.target.result);
+                r.readAsDataURL(finalBlob);
+            });
+
+            return {
+                id: item.id,
+                name: outName,
+                blob: finalBlob,
+                dataUrl: dataUrl,
+                size: finalBlob.size,
+                width: canvas.width,
+                height: canvas.height,
+                mimeType: mimeType
+            };
+        }
+
+        // ==================== SINGLE ACTIONS ====================
+        window.downloadSingleImage = function(id) {
+            const item = state.processedImages.find(p => p.id === id);
+            if (!item) return;
+            const url = URL.createObjectURL(item.blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = item.name;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(`Download de ${item.name} iniciado!`, 'success');
+        };
+
+        window.copySingleImage = async function(id) {
+            const item = state.processedImages.find(p => p.id === id);
+            if (!item) return;
+
+            try {
+                let pngBlob = item.blob;
+                if (item.mimeType !== 'image/png') {
+                    // Converter para PNG em memória pois clipboard requer PNG nativo
+                    const img = await createImageBitmap(item.blob);
+                    const c = document.createElement('canvas');
+                    c.width = img.width;
+                    c.height = img.height;
+                    c.getContext('2d').drawImage(img, 0, 0);
+                    pngBlob = await new Promise(r => c.toBlob(r, 'image/png'));
+                }
+
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': pngBlob })
+                ]);
+                showToast('Foto copiada para a área de transferência! (Pode colar no WhatsApp/Figma)', 'success');
+            } catch (err) {
+                console.error('Clipboard copy error:', err);
+                showToast('Navegador bloqueou a cópia para a área de transferência', 'error');
+            }
+        };
+
+        // ==================== BATCH ZIP DOWNLOAD ====================
+        elements.downloadZipBtn.addEventListener('click', async () => {
+            if (state.processedImages.length === 0) return;
+            showToast('Compactando arquivos no ZIP local...', 'info');
+
+            const zip = new JSZip();
+            state.processedImages.forEach(img => {
+                zip.file(img.name, img.blob);
+            });
+
+            const content = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 9 }
+            });
+
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${state.settings.zipName}.zip`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Pacote ZIP pronto e baixado!', 'success');
+        });
+
+        // ==================== CLEAR ====================
+        elements.clearBtn.addEventListener('click', () => {
+            if (confirm('Deseja limpar todas as imagens carregadas?')) {
+                state.images = [];
+                state.processedImages = [];
+                state.rotation = 0;
+                state.flipH = false;
+                elements.rotationIndicator.textContent = 'Rotação atual: 0°';
+                updateUI();
+                showToast('Todas as fotos foram removidas', 'info');
+            }
+        });
+
+        // ==================== COMPARE MODAL (SPLIT SLIDER) ====================
+        window.openCompareModal = function(id) {
+            const original = state.images.find(i => i.id === id);
+            const processed = state.processedImages.find(p => p.id === id);
+            if (!original) return;
+
+            state.currentCompareItem = { original, processed };
+
+            elements.modalFileName.textContent = original.name;
+            elements.modalOriginalSize.textContent = formatBytes(original.size);
+            elements.modalBeforeImg.src = original.dataUrl;
+
+            if (processed) {
+                elements.modalNewSize.textContent = formatBytes(processed.size);
+                const savings = Math.round(((original.size - processed.size) / original.size) * 100);
+                elements.modalSavings.textContent = `${savings}% Menor`;
+                elements.modalDimensions.textContent = `${original.width}×${original.height}px → ${processed.width}×${processed.height}px (${processed.name.split('.').pop().toUpperCase()})`;
+                elements.modalAfterImg.src = processed.dataUrl;
+                elements.modalDownloadBtn.classList.remove('hidden');
+            } else {
+                elements.modalNewSize.textContent = 'Aguardando';
+                elements.modalSavings.textContent = '--';
+                elements.modalDimensions.textContent = `${original.width}×${original.height}px (Clique em Processar para gerar)`;
+                elements.modalAfterImg.src = original.dataUrl;
+                elements.modalDownloadBtn.classList.add('hidden');
+            }
+
+            // Reset split handle to 50%
+            setSplitPosition(50);
+            elements.compareModal.classList.remove('hidden');
+        };
+
+        function setSplitPosition(pct) {
+            const clamped = Math.max(0, Math.min(100, pct));
+            elements.modalAfterClip.style.clipPath = `inset(0 0 0 ${clamped}%)`;
+            elements.splitHandle.style.left = `${clamped}%`;
+        }
+
+        // Draggable Split Handle
+        let isDraggingSplit = false;
+        function handleSplitDrag(clientX) {
+            const rect = elements.splitSliderContainer.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const pct = (x / rect.width) * 100;
+            setSplitPosition(pct);
+        }
+
+        elements.splitSliderContainer.addEventListener('mousedown', (e) => {
+            isDraggingSplit = true;
+            handleSplitDrag(e.clientX);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingSplit) return;
+            handleSplitDrag(e.clientX);
+        });
+
+        window.addEventListener('mouseup', () => isDraggingSplit = false);
+
+        // Touch support for mobile
+        elements.splitSliderContainer.addEventListener('touchstart', (e) => {
+            isDraggingSplit = true;
+            if (e.touches[0]) handleSplitDrag(e.touches[0].clientX);
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isDraggingSplit) return;
+            if (e.touches[0]) handleSplitDrag(e.touches[0].clientX);
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => isDraggingSplit = false);
+
+        elements.closeCompareModal.addEventListener('click', () => {
+            elements.compareModal.classList.add('hidden');
+        });
+
+        elements.modalDownloadBtn.addEventListener('click', () => {
+            if (state.currentCompareItem && state.currentCompareItem.processed) {
+                downloadSingleImage(state.currentCompareItem.processed.id);
+            }
+        });
+
+        // ==================== SHORTCUTS ====================
+        elements.shortcutsBtn.addEventListener('click', () => elements.shortcutsModal.classList.remove('hidden'));
+        elements.closeShortcuts.addEventListener('click', () => elements.shortcutsModal.classList.add('hidden'));
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !state.processing && state.images.length > 0) {
+                elements.processBtn.click();
+            }
+            if (e.key === 'Escape') {
+                elements.shortcutsModal.classList.add('hidden');
+                elements.compareModal.classList.add('hidden');
+            }
+        });
+
+        // ==================== HISTORY SYSTEM ====================
+        function saveToHistory(elapsedTime) {
+            const history = JSON.parse(localStorage.getItem('4u_imagepro_history') || '[]');
+            const entry = {
+                date: new Date().toISOString(),
+                count: state.images.length,
+                origSize: state.images.reduce((a, b) => a + b.size, 0),
+                newSize: state.processedImages.reduce((a, b) => a + b.size, 0),
+                format: state.settings.format,
+                elapsed: elapsedTime
+            };
+            history.unshift(entry);
+            if (history.length > 10) history.pop();
+            localStorage.setItem('4u_imagepro_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('4u_imagepro_history') || '[]');
+            if (history.length === 0) {
+                elements.historyList.innerHTML = `
+                    <div class="glass-dark rounded-2xl p-6 text-center text-gray-500 text-sm">
+                        Nenhum processamento registrado no dispositivo
+                    </div>
+                `;
+                return;
+            }
+
+            elements.historyList.innerHTML = history.map(item => {
+                const date = new Date(item.date).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const savings = Math.round(((item.origSize - item.newSize) / item.origSize) * 100);
+                return `
+                    <div class="glass-dark rounded-2xl p-4 flex justify-between items-center flex-wrap gap-2 text-xs border border-white/5 hover-lift">
+                        <div>
+                            <div class="font-bold text-gray-200">${item.count} fotos • ${item.format.toUpperCase()}</div>
+                            <div class="text-gray-500">${date} (${item.elapsed}s)</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-green-400 font-bold">${savings}% economia</span>
+                            <div class="text-gray-400">${formatBytes(item.newSize)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        elements.clearHistoryBtn.addEventListener('click', () => {
+            localStorage.removeItem('4u_imagepro_history');
+            renderHistory();
+            showToast('Histórico limpo com sucesso!', 'info');
+        });
+
+        // Initialize history
+        renderHistory();
+    </script>
+</body>
+</html>
