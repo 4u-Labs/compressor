@@ -294,8 +294,8 @@
                     <div class="text-xs text-gray-400 font-medium">Tamanho Original</div>
                 </div>
                 <div class="glass-dark rounded-2xl p-4 text-center hover-lift border border-white/5">
-                    <div class="text-2xl md:text-3xl font-bold gradient-text mb-1" id="statProcessed">0</div>
-                    <div class="text-xs text-gray-400 font-medium">Processados</div>
+                    <div class="text-2xl md:text-3xl font-bold gradient-text mb-1" id="statProcessed">--</div>
+                    <div class="text-xs text-gray-400 font-medium" id="statProcessedLabel">Tamanho Otimizado</div>
                 </div>
                 <div class="glass-dark rounded-2xl p-4 text-center hover-lift border border-green-500/20">
                     <div class="text-2xl md:text-3xl font-bold text-green-400 mb-1" id="statSavings">0%</div>
@@ -881,6 +881,20 @@
             }
         });
 
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func(...args), wait);
+            };
+        }
+
+        const debouncedProcess = debounce(async () => {
+            if (state.images.length > 0 && !state.processing) {
+                await processAllImages(false);
+            }
+        }, 200);
+
         async function handleFiles(files) {
             const fileList = Array.from(files);
             if (fileList.length === 0) return;
@@ -898,7 +912,8 @@
 
             if (loadedCount > 0) {
                 updateUI();
-                showToast(`${loadedCount} imagem(ns) carregada(s) com sucesso!`, 'success');
+                showToast(`${loadedCount} imagem(ns) carregada(s)! Otimizando...`, 'info');
+                await processAllImages(false);
             }
         }
 
@@ -949,14 +964,31 @@
         function updateStats() {
             const totalOriginal = state.images.reduce((acc, img) => acc + img.size, 0);
             const totalProcessed = state.processedImages.reduce((acc, img) => acc + img.size, 0);
-            const savings = totalOriginal > 0 && totalProcessed > 0
+            const isReady = state.processedImages.length > 0;
+            const savings = totalOriginal > 0 && isReady
                 ? Math.round(((totalOriginal - totalProcessed) / totalOriginal) * 100)
                 : 0;
 
             elements.statTotal.textContent = state.images.length;
             elements.statSize.textContent = formatBytes(totalOriginal);
-            elements.statProcessed.textContent = state.processedImages.length;
-            elements.statSavings.textContent = `${Math.max(0, savings)}%`;
+
+            const label = document.getElementById('statProcessedLabel');
+            if (state.processing) {
+                elements.statProcessed.textContent = 'Calculando...';
+                if (label) label.textContent = 'Processando lote';
+                elements.statSavings.textContent = '...';
+            } else if (isReady) {
+                elements.statProcessed.textContent = formatBytes(totalProcessed);
+                const countText = state.processedImages.length === state.images.length
+                    ? `${state.processedImages.length} fotos prontas`
+                    : `${state.processedImages.length}/${state.images.length} prontas`;
+                if (label) label.textContent = `Otimizado (${countText})`;
+                elements.statSavings.textContent = `${Math.max(0, savings)}%`;
+            } else {
+                elements.statProcessed.textContent = '--';
+                if (label) label.textContent = 'Tamanho Otimizado';
+                elements.statSavings.textContent = '0%';
+            }
         }
 
         // ==================== RENDER IMAGE CARDS ====================
@@ -964,22 +996,27 @@
             elements.imagesGrid.innerHTML = state.images.map((item) => {
                 const processed = state.processedImages.find(p => p.id === item.id);
                 const savings = processed ? Math.round(((item.size - processed.size) / item.size) * 100) : null;
+                const isProcessing = item.status === 'processing';
                 
                 return `
                     <div class="image-card glass-dark rounded-2xl overflow-hidden border border-white/10 hover-lift group" data-id="${item.id}">
                         <div class="relative aspect-video bg-black/60 cursor-pointer overflow-hidden" onclick="openCompareModal('${item.id}')">
-                            <img src="${item.dataUrl}" alt="${item.name}" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" loading="lazy">
+                            <img src="${processed ? processed.dataUrl : item.dataUrl}" alt="${item.name}" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" loading="lazy">
                             
                             <!-- Badges -->
                             ${processed ? `
                                 <div class="absolute top-2 right-2 bg-green-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
                                     -${savings}%
                                 </div>
+                            ` : (isProcessing ? `
+                                <div class="absolute top-2 right-2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg animate-pulse">
+                                    Otimizando...
+                                </div>
                             ` : `
                                 <div class="absolute top-2 right-2 bg-black/60 text-gray-400 text-[10px] font-mono px-2 py-0.5 rounded-full">
                                     ${item.width}×${item.height}
                                 </div>
-                            `}
+                            `)}
 
                             <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-xs font-semibold text-green-400 gap-1.5 pointer-events-none">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
@@ -991,7 +1028,15 @@
                             <div class="font-semibold text-xs text-gray-200 truncate mb-1" title="${item.name}">${item.name}</div>
                             <div class="flex justify-between items-center text-[11px] text-gray-400 mb-3">
                                 <span>Orig: ${formatBytes(item.size)}</span>
-                                ${processed ? `<span class="text-green-400 font-bold font-mono">${formatBytes(processed.size)}</span>` : '<span class="text-gray-500">Aguardando</span>'}
+                                ${processed ? `
+                                    <span class="text-green-400 font-bold font-mono">
+                                        Novo: ${formatBytes(processed.size)}
+                                    </span>
+                                ` : (isProcessing ? `
+                                    <span class="text-yellow-400 font-medium animate-pulse">Otimizando...</span>
+                                ` : `
+                                    <span class="text-gray-500">Aguardando</span>
+                                `)}
                             </div>
 
                             <!-- Card Quick Actions -->
@@ -1004,7 +1049,9 @@
                                     <button onclick="copySingleImage('${item.id}')" class="glass rounded-lg p-1 text-[11px] text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10" title="Copiar para clipboard">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
                                     </button>
-                                ` : ''}
+                                ` : `
+                                    <span class="text-[10px] text-gray-500 italic py-1">Processando...</span>
+                                `}
                                 <button onclick="removeImage('${item.id}')" class="glass rounded-lg p-1 text-[11px] text-gray-500 hover:text-red-400 hover:bg-red-500/10 ml-auto" title="Remover">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                 </button>
@@ -1024,6 +1071,7 @@
         // ==================== CONTROLS LISTENERS ====================
         elements.formatSelect.addEventListener('change', (e) => {
             state.settings.format = e.target.value;
+            debouncedProcess();
         });
 
         // Presets de Qualidade
@@ -1040,6 +1088,7 @@
                 elements.qualitySlider.value = q;
                 elements.qualityValue.textContent = q + '%';
                 state.settings.quality = q / 100;
+                debouncedProcess();
             });
         });
 
@@ -1052,6 +1101,7 @@
             elements.sliderContainer.classList.add('hidden');
             elements.targetSizeContainer.classList.remove('hidden');
             elements.qualityValue.textContent = 'Meta KB';
+            debouncedProcess();
         });
 
         elements.qualitySlider.addEventListener('input', (e) => {
@@ -1061,83 +1111,132 @@
             document.querySelectorAll('.preset-pill[data-quality]').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.quality === val);
             });
+            debouncedProcess();
         });
+
+        elements.targetSizeInput.addEventListener('input', debouncedProcess);
+        elements.targetSizeUnit.addEventListener('change', debouncedProcess);
 
         elements.resolutionSelect.addEventListener('change', (e) => {
             state.settings.resolution = e.target.value;
-            elements.customResolutionInputs.classList.toggle('hidden', e.target.value !== 'custom');
+            const isCustom = e.target.value === 'custom';
+            elements.customResolutionInputs.classList.toggle('hidden', !isCustom);
+            if (isCustom && (!elements.customWidth.value || !elements.customHeight.value) && state.images.length > 0) {
+                elements.customWidth.value = state.images[0].width;
+                elements.customHeight.value = state.images[0].height;
+            }
+            debouncedProcess();
         });
+
+        elements.customWidth.addEventListener('input', debouncedProcess);
+        elements.customHeight.addEventListener('input', debouncedProcess);
 
         // Watermark Controls
         elements.watermarkToggle.addEventListener('change', (e) => {
             state.settings.watermarkEnabled = e.target.checked;
             elements.watermarkSettings.classList.toggle('opacity-40', !e.target.checked);
             elements.watermarkSettings.classList.toggle('pointer-events-none', !e.target.checked);
+            debouncedProcess();
         });
-        elements.watermarkText.addEventListener('input', (e) => state.settings.watermarkText = e.target.value);
-        elements.watermarkPosition.addEventListener('change', (e) => state.settings.watermarkPosition = e.target.value);
-        elements.watermarkOpacity.addEventListener('change', (e) => state.settings.watermarkOpacity = parseFloat(e.target.value));
+        elements.watermarkText.addEventListener('input', (e) => {
+            state.settings.watermarkText = e.target.value;
+            debouncedProcess();
+        });
+        elements.watermarkPosition.addEventListener('change', (e) => {
+            state.settings.watermarkPosition = e.target.value;
+            debouncedProcess();
+        });
+        elements.watermarkOpacity.addEventListener('change', (e) => {
+            state.settings.watermarkOpacity = parseFloat(e.target.value);
+            debouncedProcess();
+        });
 
         // Rotation & Orientation
         elements.rotate90Btn.addEventListener('click', () => {
             state.rotation = (state.rotation + 90) % 360;
             elements.rotationIndicator.textContent = `Rotação atual: ${state.rotation}°`;
+            debouncedProcess();
         });
         elements.rotate180Btn.addEventListener('click', () => {
             state.rotation = (state.rotation + 180) % 360;
             elements.rotationIndicator.textContent = `Rotação atual: ${state.rotation}°`;
+            debouncedProcess();
         });
         elements.flipHBtn.addEventListener('click', () => {
             state.flipH = !state.flipH;
             elements.flipHBtn.classList.toggle('border-green-400', state.flipH);
             showToast(state.flipH ? 'Espelhamento horizontal ativado' : 'Espelhamento desativado', 'info');
+            debouncedProcess();
         });
 
         // Names
-        elements.renameInput.addEventListener('input', (e) => state.settings.rename = e.target.value.trim());
+        elements.renameInput.addEventListener('input', (e) => {
+            state.settings.rename = e.target.value.trim();
+            debouncedProcess();
+        });
         elements.zipNameInput.addEventListener('input', (e) => state.settings.zipName = e.target.value.trim() || 'imagens_otimizadas_4u');
 
-        // ==================== CORE IMAGE PROCESSING ====================
-        elements.processBtn.addEventListener('click', async () => {
+        // ==================== CORE IMAGE PROCESSING ENGINE ====================
+        async function processAllImages(isManual = false) {
             if (state.images.length === 0 || state.processing) return;
 
             state.processing = true;
-            elements.processBtn.disabled = true;
-            elements.progressSection.classList.remove('hidden');
-            state.processedImages = [];
+            if (isManual) {
+                elements.processBtn.disabled = true;
+                elements.progressSection.classList.remove('hidden');
+            }
 
             const total = state.images.length;
             let current = 0;
             const startTime = Date.now();
+            const newProcessed = [];
 
             for (const item of state.images) {
-                elements.progressStatus.textContent = `Otimizando ${item.name} (${current + 1} de ${total})...`;
-                
+                item.status = 'processing';
+                if (isManual) {
+                    elements.progressStatus.textContent = `Otimizando ${item.name} (${current + 1} de ${total})...`;
+                }
+
                 try {
                     const result = await processImageCore(item);
-                    state.processedImages.push(result);
+                    newProcessed.push(result);
+                    item.status = 'completed';
                 } catch (err) {
                     console.error('Falha ao processar:', err);
-                    showToast(`Erro ao processar ${item.name}`, 'error');
+                    item.status = 'error';
                 }
 
                 current++;
-                const pct = Math.round((current / total) * 100);
-                elements.progressBar.style.width = pct + '%';
-                elements.progressText.textContent = pct + '%';
-                renderImages();
-                updateStats();
+                if (isManual) {
+                    const pct = Math.round((current / total) * 100);
+                    elements.progressBar.style.width = pct + '%';
+                    elements.progressText.textContent = pct + '%';
+                }
             }
 
+            state.processedImages = newProcessed;
             state.processing = false;
-            elements.processBtn.disabled = false;
-            elements.progressSection.classList.add('hidden');
-            elements.downloadZipBtn.classList.remove('hidden');
+
+            if (isManual) {
+                elements.processBtn.disabled = false;
+                elements.progressSection.classList.add('hidden');
+            }
+
+            if (state.processedImages.length > 0) {
+                elements.downloadZipBtn.classList.remove('hidden');
+            }
+
+            renderImages();
+            updateStats();
 
             const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
-            saveToHistory(elapsedSec);
-            showToast(`Concluído! ${state.processedImages.length} imagens processadas em ${elapsedSec}s`, 'success');
-        });
+            if (isManual) {
+                saveToHistory(elapsedSec);
+                showToast(`Concluído! ${state.processedImages.length} imagens processadas em ${elapsedSec}s`, 'success');
+            }
+        }
+
+        elements.processBtn.addEventListener('click', () => processAllImages(true));
 
         async function processImageCore(item) {
             let targetW = item.width;
@@ -1250,27 +1349,37 @@
 
             // Quality / Target Size resolution
             let finalBlob = null;
-            if (state.settings.isTargetSize) {
-                const targetBytes = (parseFloat(elements.targetSizeInput.value) || 500) * (elements.targetSizeUnit.value === 'MB' ? 1024 * 1024 : 1024);
-                // Binary search for optimal quality
-                let low = 0.05;
-                let high = 0.98;
-                let bestBlob = null;
+            try {
+                if (state.settings.isTargetSize) {
+                    const targetBytes = (parseFloat(elements.targetSizeInput.value) || 500) * (elements.targetSizeUnit.value === 'MB' ? 1024 * 1024 : 1024);
+                    let low = 0.05;
+                    let high = 0.98;
+                    let bestBlob = null;
 
-                for (let iter = 0; iter < 6; iter++) {
-                    const mid = (low + high) / 2;
-                    const testBlob = await new Promise(r => canvas.toBlob(r, mimeType, mid));
-                    if (!testBlob) break;
-                    bestBlob = testBlob;
-                    if (testBlob.size > targetBytes) {
-                        high = mid;
-                    } else {
-                        low = mid;
+                    for (let iter = 0; iter < 6; iter++) {
+                        const mid = (low + high) / 2;
+                        const testBlob = await new Promise(r => canvas.toBlob(r, mimeType, mid));
+                        if (!testBlob) break;
+                        bestBlob = testBlob;
+                        if (testBlob.size > targetBytes) {
+                            high = mid;
+                        } else {
+                            low = mid;
+                        }
                     }
+                    finalBlob = bestBlob || await new Promise(r => canvas.toBlob(r, mimeType, 0.8));
+                } else {
+                    finalBlob = await new Promise(r => canvas.toBlob(r, mimeType, state.settings.quality));
                 }
-                finalBlob = bestBlob || await new Promise(r => canvas.toBlob(r, mimeType, 0.8));
-            } else {
-                finalBlob = await new Promise(r => canvas.toBlob(r, mimeType, state.settings.quality));
+            } catch (err) {
+                console.warn('Canvas toBlob warning:', err);
+            }
+
+            if (!finalBlob) {
+                finalBlob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+            }
+            if (!finalBlob) {
+                finalBlob = item.file;
             }
 
             // Output filename
